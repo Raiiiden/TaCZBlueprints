@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "com.raiiiden.taczblueprints.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "mixins.taczblueprints.refmap.json",
+  "mixins": [
+    "MixinGunSmithTableScreen"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "minVersion": "0.8"
+}
