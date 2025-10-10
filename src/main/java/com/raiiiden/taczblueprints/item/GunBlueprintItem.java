@@ -23,8 +23,15 @@ import java.util.List;
 
 public class GunBlueprintItem extends Item {
 
-    public GunBlueprintItem(Properties properties) {
+    private final String gunType;
+
+    public GunBlueprintItem(Properties properties, String gunType) {
         super(properties);
+        this.gunType = gunType;
+    }
+
+    public String getGunType() {
+        return gunType;
     }
 
     @Override
@@ -41,12 +48,19 @@ public class GunBlueprintItem extends Item {
             TaCZBlueprints.LOGGER.debug("[Blueprint] Using blueprint for storedGunId='{}'", storedGunId);
 
             final String gunIdForUnlock = storedGunId; // full ID including gun/
+
+            // Get the display name for the gun
+            Component gunName = getGunDisplayName(storedGunId);
+
             LazyOptional<IGunUnlocks> cap = GunUnlocksProvider.get(player);
             cap.ifPresent(unlocks -> {
                 if (!unlocks.isUnlocked(gunIdForUnlock)) {
                     unlocks.unlockGun(gunIdForUnlock);
                     TaCZBlueprints.LOGGER.debug("[Blueprint] Gun unlocked: {}", gunIdForUnlock);
-                    player.displayClientMessage(Component.literal("§aUnlocked gun: " + gunIdForUnlock), true);
+                    player.displayClientMessage(
+                            Component.literal("§aUnlocked gun: ").append(gunName),
+                            true
+                    );
 
                     if (!player.isCreative()) stack.shrink(1);
 
@@ -56,7 +70,10 @@ public class GunBlueprintItem extends Item {
                     }
                 } else {
                     TaCZBlueprints.LOGGER.debug("[Blueprint] Gun already unlocked: {}", gunIdForUnlock);
-                    player.displayClientMessage(Component.literal("§eGun already unlocked: " + gunIdForUnlock), true);
+                    player.displayClientMessage(
+                            Component.literal("§eGun already unlocked: ").append(gunName),
+                            true
+                    );
                 }
             });
         }
@@ -71,24 +88,8 @@ public class GunBlueprintItem extends Item {
             return Component.literal("§cInvalid Blueprint");
         }
 
-        // Remove "gun/" prefix for lookup
-        ResourceLocation lookupId = getGunIdForLookup(storedGunId);
-        CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(lookupId);
-
-        String typeName = "Gun";
-
-        if (index != null) {
-            if (index.getType() != null && !index.getType().isEmpty()) {
-                typeName = index.getType().substring(0,1).toUpperCase() + index.getType().substring(1).toLowerCase();
-            }
-        } else {
-            TaCZBlueprints.LOGGER.warn("[Blueprint] No CommonGunIndex found for gunId={} (lookup: {})", storedGunId, lookupId);
-        }
-
-        TaCZBlueprints.LOGGER.debug("[Blueprint] TypeName: '{}' for gunId={}", typeName, storedGunId);
-
-        // Display name is just "Rifle Blueprint" (or whatever type)
-        return Component.literal(typeName + " Blueprint");
+        // Display name is based on the item's gun type
+        return Component.literal(gunType + " Blueprint");
     }
 
     @Override
@@ -108,6 +109,22 @@ public class GunBlueprintItem extends Item {
             tooltip.add(Component.translatable(translationKey).withStyle(style -> style.withColor(0x808080)));
         } else {
             TaCZBlueprints.LOGGER.debug("[Blueprint] No display name found for gunId={} (lookup: {})", storedGunId, lookupId);
+        }
+    }
+
+    /**
+     * Gets the display name for a gun (translatable component)
+     */
+    private static Component getGunDisplayName(String storedGunId) {
+        ResourceLocation lookupId = getGunIdForLookup(storedGunId);
+        CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(lookupId);
+
+        if (index != null && index.getPojo() != null && index.getPojo().getName() != null && !index.getPojo().getName().isEmpty()) {
+            String translationKey = index.getPojo().getName();
+            return Component.translatable(translationKey);
+        } else {
+            // Fallback to gun ID if no translation found
+            return Component.literal(storedGunId);
         }
     }
 
