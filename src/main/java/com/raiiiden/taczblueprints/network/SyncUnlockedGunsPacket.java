@@ -1,6 +1,8 @@
 package com.raiiiden.taczblueprints.network;
 
+import com.raiiiden.taczblueprints.TaCZBlueprints;
 import com.raiiiden.taczblueprints.capability.GunUnlocksProvider;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
@@ -29,27 +31,29 @@ public record SyncUnlockedGunsPacket(Set<String> unlockedGuns) {
 
     public static void handle(SyncUnlockedGunsPacket pkt, Supplier<NetworkEvent.Context> ctx) {
         NetworkEvent.Context context = ctx.get();
-        context.enqueueWork(() -> {
-            if (context.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
-                // Client side: update player's capability
-                var mc = net.minecraft.client.Minecraft.getInstance();
-                if (mc.player != null) {
-                    mc.player.getCapability(GunUnlocksProvider.UNLOCKS).ifPresent(unlocks -> {
-                        Set<String> normalized = new HashSet<>();
-                        for (String gunId : pkt.unlockedGuns) {
-                            normalized.add(normalizeGunId(gunId));
-                        }
-                        unlocks.setUnlockedGuns(normalized);
-                    });
-                }
-            }
-        });
-        context.setPacketHandled(true);
-    }
 
-    /** Ensures gun IDs match the table format tacz:gun/(id) */
-    private static String normalizeGunId(String gunId) {
-        // Keep the ID exactly as stored
-        return gunId;
+        if (context.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
+            // CRITICAL: Enqueue work to run on the main client thread
+            context.enqueueWork(() -> {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player == null) {
+                    TaCZBlueprints.LOGGER.warn("[Blueprint] Received sync packet but player is null!");
+                    return;
+                }
+
+                // Wait for capability to be attached before updating
+                mc.player.getCapability(GunUnlocksProvider.UNLOCKS).ifPresent(unlocks -> {
+                    unlocks.setUnlockedGuns(pkt.unlockedGuns);
+                    TaCZBlueprints.LOGGER.info("[Blueprint] Client synced {} unlocked guns", pkt.unlockedGuns.size());
+
+                    // Debug log what was synced
+                    if (!pkt.unlockedGuns.isEmpty()) {
+                        TaCZBlueprints.LOGGER.debug("[Blueprint] Unlocked guns: {}", pkt.unlockedGuns);
+                    }
+                });
+            });
+        }
+
+        context.setPacketHandled(true);
     }
 }

@@ -30,29 +30,50 @@ public class MixinGunSmithTableScreen {
     @Inject(method = "classifyRecipes", at = @At("RETURN"))
     private void onClassifyRecipes(CallbackInfo ci) {
         GunSmithTableScreen screen = (GunSmithTableScreen) (Object) this;
+        Minecraft mc = Minecraft.getInstance();
+
+        if (mc.player == null) {
+            TaCZBlueprints.LOGGER.warn("[Blueprint] Cannot classify recipes - player is null");
+            return;
+        }
 
         try {
-            // Access private fields
+            // Access private fields via reflection
             Field selectedRecipeListField = GunSmithTableScreen.class.getDeclaredField("selectedRecipeList");
             Field selectedRecipeField = GunSmithTableScreen.class.getDeclaredField("selectedRecipe");
             selectedRecipeListField.setAccessible(true);
             selectedRecipeField.setAccessible(true);
 
+            @SuppressWarnings("unchecked")
             List<ResourceLocation> recipes = (List<ResourceLocation>) selectedRecipeListField.get(screen);
-            if (recipes == null) return;
+            if (recipes == null) {
+                TaCZBlueprints.LOGGER.warn("[Blueprint] Recipe list is null");
+                return;
+            }
 
-            RecipeManager recipeManager = Minecraft.getInstance().level.getRecipeManager();
-            LazyOptional<IGunUnlocks> unlocksCap = GunUnlocksProvider.get(Minecraft.getInstance().player);
+            RecipeManager recipeManager = mc.level.getRecipeManager();
+            LazyOptional<IGunUnlocks> unlocksCap = mc.player.getCapability(GunUnlocksProvider.UNLOCKS);
 
+            // Check if capability exists
             if (!unlocksCap.isPresent()) {
-                TaCZBlueprints.LOGGER.warn("[{}] Client capability missing when classifyRecipes ran! The GUI may not see unlocks yet.", TaCZBlueprints.MODID);
+                TaCZBlueprints.LOGGER.warn("[Blueprint] Client capability not attached when GUI opened!");
+                return;
             }
 
             unlocksCap.ifPresent(unlocks -> {
                 Set<String> unlockedGuns = unlocks.getUnlockedGuns();
                 List<String> defaultEnabled = BlueprintConfig.SERVER.getEnabledGuns();
 
+                TaCZBlueprints.LOGGER.debug("[Blueprint] Filtering recipes - {} unlocked guns, {} default enabled",
+                        unlockedGuns.size(), defaultEnabled.size());
+
+                // Log unlocked guns for debugging
+                if (!unlockedGuns.isEmpty()) {
+                    TaCZBlueprints.LOGGER.debug("[Blueprint] Unlocked guns: {}", unlockedGuns);
+                }
+
                 Iterator<ResourceLocation> it = recipes.iterator();
+                int removedCount = 0;
 
                 while (it.hasNext()) {
                     ResourceLocation recipeId = it.next();
@@ -70,39 +91,49 @@ public class MixinGunSmithTableScreen {
                     CompoundTag tag = out.getTag();
                     String nbtGunId = (tag != null && tag.contains("GunId")) ? tag.getString("GunId") : null;
 
+                    // Normalize gun ID to always include "gun/" prefix
                     String normalizedGunId = null;
                     if (nbtGunId != null && !nbtGunId.isEmpty()) {
                         ResourceLocation rl = new ResourceLocation(nbtGunId);
                         String path = rl.getPath();
-                        if (!path.startsWith("gun/")) path = "gun/" + path;
+                        if (!path.startsWith("gun/")) {
+                            path = "gun/" + path;
+                        }
                         normalizedGunId = new ResourceLocation(rl.getNamespace(), path).toString();
                     } else if (!"null".equals(baseItem)) {
                         ResourceLocation rl = new ResourceLocation(baseItem);
                         String path = rl.getPath();
-                        if (!path.startsWith("gun/")) path = "gun/" + path;
+                        if (!path.startsWith("gun/")) {
+                            path = "gun/" + path;
+                        }
                         normalizedGunId = new ResourceLocation(rl.getNamespace(), path).toString();
                     }
 
+                    // Check if gun is allowed (either default enabled or unlocked)
                     boolean allowed = normalizedGunId != null &&
                             (defaultEnabled.contains(normalizedGunId) || unlockedGuns.contains(normalizedGunId));
 
                     if (!allowed) {
+                        TaCZBlueprints.LOGGER.debug("[Blueprint] Removing recipe {} (gun: {})", recipeId, normalizedGunId);
                         it.remove();
+                        removedCount++;
                     }
                 }
 
-                // Preserve selectedRecipe if it still exists
+                TaCZBlueprints.LOGGER.debug("[Blueprint] Filtered out {} recipes, {} remaining", removedCount, recipes.size());
+
+                // Preserve selectedRecipe if it still exists, otherwise select first
                 try {
                     Object currentSelectedRecipe = selectedRecipeField.get(screen);
                     if (currentSelectedRecipe instanceof GunSmithTableRecipe currentRecipe) {
                         ResourceLocation id = currentRecipe.getId();
                         if (recipes.contains(id)) {
-                            // Already valid, keep it
+                            // Current selection is still valid
                             return;
                         }
                     }
 
-                    // Otherwise select first available recipe or null
+                    // Select first available recipe or null
                     if (recipes.isEmpty()) {
                         selectedRecipeField.set(screen, null);
                     } else {
@@ -113,12 +144,12 @@ public class MixinGunSmithTableScreen {
                         selectedRecipeField.set(screen, selectedRecipe);
                     }
                 } catch (ReflectiveOperationException e) {
-                    e.printStackTrace();
+                    TaCZBlueprints.LOGGER.error("[Blueprint] Error updating selected recipe", e);
                 }
             });
 
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+            TaCZBlueprints.LOGGER.error("[Blueprint] Error accessing GunSmithTableScreen fields", e);
         }
     }
 }

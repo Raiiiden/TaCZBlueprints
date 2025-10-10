@@ -46,25 +46,49 @@ public class BlueprintRegistrar {
                         return new ItemStack(GUN_BLUEPRINT.get());
                     })
                     .displayItems((params, output) -> {
-                        Map<String, List<ResourceLocation>> gunsByType = new TreeMap<>();
+                        List<String> typeOrder = Arrays.asList("Sniper", "Mg", "Rifle", "Shotgun", "Smg", "Pistol", "Rpg");
+                        Map<String, List<ResourceLocation>> gunsByType = new HashMap<>();
+
                         for (ResourceLocation gunId : ALL_GUN_IDS) {
-                            CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(gunId);
-                            String type = "Gun"; // default fallback
-                            if (index != null && index.getType() != null) {
+                            // 🔧 Convert "tacz:gun/ak47" -> "tacz:ak47" for lookup
+                            String path = gunId.getPath();
+                            if (path.startsWith("gun/")) {
+                                path = path.substring(4);
+                            }
+                            ResourceLocation lookupId = new ResourceLocation(gunId.getNamespace(), path);
+
+                            CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(lookupId);
+                            String type = "Gun";
+                            if (index != null && index.getType() != null && !index.getType().isEmpty()) {
                                 type = capitalize(index.getType());
                             } else {
-                                TaCZBlueprints.LOGGER.warn("Missing gun index or type for: {}", gunId);
+                                TaCZBlueprints.LOGGER.warn("[Blueprint] Missing gun index or type for: {}", gunId);
                             }
                             gunsByType.computeIfAbsent(type, k -> new ArrayList<>()).add(gunId);
                         }
 
-                        // Sort and add to creative tab
-                        gunsByType.forEach((type, ids) -> {
-                            ids.sort(Comparator.comparing(ResourceLocation::getPath));
-                            for (ResourceLocation id : ids) {
-                                output.accept(GunBlueprintItem.createBlueprint(GUN_BLUEPRINT.get(), id));
+                        // Add in order
+                        for (String type : typeOrder) {
+                            List<ResourceLocation> ids = gunsByType.get(type);
+                            if (ids != null) {
+                                ids.sort(Comparator.comparing(ResourceLocation::getPath));
+                                for (ResourceLocation id : ids) {
+                                    output.accept(GunBlueprintItem.createBlueprint(GUN_BLUEPRINT.get(), id));
+                                }
                             }
-                        });
+                        }
+
+                        // Add any remaining types alphabetically
+                        gunsByType.keySet().stream()
+                                .filter(type -> !typeOrder.contains(type))
+                                .sorted()
+                                .forEach(type -> {
+                                    List<ResourceLocation> ids = gunsByType.get(type);
+                                    ids.sort(Comparator.comparing(ResourceLocation::getPath));
+                                    for (ResourceLocation id : ids) {
+                                        output.accept(GunBlueprintItem.createBlueprint(GUN_BLUEPRINT.get(), id));
+                                    }
+                                });
                     })
                     .build()
     );
@@ -87,7 +111,7 @@ public class BlueprintRegistrar {
         ALL_GUN_IDS.clear();
         for (Map.Entry<ResourceLocation, CommonGunIndex> entry : assetsManager.getAllGuns()) {
             ResourceLocation id = entry.getKey();
-            // Ensure consistent prefix
+            // ✅ Make sure it always includes the "gun/" prefix
             if (!id.getPath().startsWith("gun/")) {
                 id = new ResourceLocation(id.getNamespace(), "gun/" + id.getPath());
             }
