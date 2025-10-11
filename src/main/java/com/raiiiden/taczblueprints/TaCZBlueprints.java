@@ -2,12 +2,14 @@ package com.raiiiden.taczblueprints;
 
 import com.raiiiden.taczblueprints.config.BlueprintConfig;
 import com.raiiiden.taczblueprints.item.BlueprintRegistrar;
+import com.raiiiden.taczblueprints.loot.ModLootModifiers;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -22,23 +24,30 @@ public class TaCZBlueprints {
     // Register items and creative tabs
     BlueprintRegistrar.register();
 
-    // Setup mod event bus listeners
-    FMLJavaModLoadingContext.get().getModEventBus().addListener(this::commonSetup);
-    FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onConfigLoad);
+    // Register loot modifiers (chest only, entity removed)
+    ModLootModifiers.register();
 
-    // Register commands on Forge event bus
-    net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
+    // Log registered chest loot modifier
+    LOGGER.info("[{}] Registered loot modifier type: {}", MODID, ModLootModifiers.BLUEPRINT_CHEST_LOOT.getId());
 
     // Register configs
     ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, BlueprintConfig.SERVER_SPEC);
     ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, BlueprintConfig.CLIENT_SPEC);
-  }
 
+    // Event bus listeners
+    FMLJavaModLoadingContext.get().getModEventBus().addListener(this::commonSetup);
+    FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onConfigLoad);
+
+    // Commands
+    MinecraftForge.EVENT_BUS.addListener(this::registerCommands);
+  }
 
   private void commonSetup(FMLCommonSetupEvent event) {
     com.raiiiden.taczblueprints.network.ModNetworking.registerPackets();
     LOGGER.info("[{}] Common setup complete", MODID);
+    // Config may not be loaded yet, dynamic loot handler will use safe defaults
   }
+
   private void registerCommands(net.minecraftforge.event.RegisterCommandsEvent event) {
     event.getDispatcher().register(com.raiiiden.taczblueprints.command.BlueprintCommands.register());
   }
