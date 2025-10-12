@@ -9,30 +9,20 @@ import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/**
- * Handles capability registration and attachment
- * Combines both MOD bus and FORGE bus events in one class
- */
 public class CapabilityHandler {
 
     private static final ResourceLocation CAPABILITY_ID = new ResourceLocation(TaCZBlueprints.MODID, "gun_unlocks");
 
-    /**
-     * MOD Bus Events - Register capability types during mod setup
-     */
     @Mod.EventBusSubscriber(modid = TaCZBlueprints.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class ModBusEvents {
 
         @SubscribeEvent
         public static void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
             event.register(IGunUnlocks.class);
-            TaCZBlueprints.LOGGER.info("[{}] Registered IGunUnlocks capability", TaCZBlueprints.MODID);
+            // TaCZBlueprints.LOGGER.info("[{}] Registered IGunUnlocks capability", TaCZBlueprints.MODID);
         }
     }
 
-    /**
-     * FORGE Bus Events - Attach capabilities to entities during gameplay
-     */
     @Mod.EventBusSubscriber(modid = TaCZBlueprints.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static class ForgeBusEvents {
 
@@ -43,7 +33,7 @@ public class CapabilityHandler {
                 GunUnlocksProvider provider = new GunUnlocksProvider();
                 event.addCapability(CAPABILITY_ID, provider);
 
-                TaCZBlueprints.LOGGER.debug("[{}] Attached gun unlocks capability to player", TaCZBlueprints.MODID);
+                // TaCZBlueprints.LOGGER.debug("[{}] Attached gun unlocks capability to player", TaCZBlueprints.MODID);
             }
         }
     }

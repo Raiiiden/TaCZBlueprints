@@ -33,22 +33,21 @@ public record SyncUnlockedGunsPacket(Set<String> unlockedGuns) {
         NetworkEvent.Context context = ctx.get();
 
         if (context.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
-            // CRITICAL: Enqueue work to run on the main client thread
             context.enqueueWork(() -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player == null) {
-                    TaCZBlueprints.LOGGER.warn("[Blueprint] Received sync packet but player is null!");
+                    // TaCZBlueprints.LOGGER.warn("[Blueprint] Received sync packet but player is null!");
                     return;
                 }
 
                 // Wait for capability to be attached before updating
                 mc.player.getCapability(GunUnlocksProvider.UNLOCKS).ifPresent(unlocks -> {
                     unlocks.setUnlockedGuns(pkt.unlockedGuns);
-                    TaCZBlueprints.LOGGER.info("[Blueprint] Client synced {} unlocked guns", pkt.unlockedGuns.size());
+                    // TaCZBlueprints.LOGGER.info("[Blueprint] Client synced {} unlocked guns", pkt.unlockedGuns.size());
 
                     // Debug log what was synced
                     if (!pkt.unlockedGuns.isEmpty()) {
-                        TaCZBlueprints.LOGGER.debug("[Blueprint] Unlocked guns: {}", pkt.unlockedGuns);
+                        // TaCZBlueprints.LOGGER.debug("[Blueprint] Unlocked guns: {}", pkt.unlockedGuns);
                     }
                 });
             });

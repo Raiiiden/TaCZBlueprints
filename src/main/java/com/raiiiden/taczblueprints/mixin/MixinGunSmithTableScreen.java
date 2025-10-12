@@ -118,7 +118,7 @@ public class MixinGunSmithTableScreen {
                     }
                 }
 
-                TaCZBlueprints.LOGGER.debug("[Blueprint] Filtered out {} recipes, {} remaining", removedCount, recipes.size());
+                // TaCZBlueprints.LOGGER.debug("[Blueprint] Filtered out {} recipes, {} remaining", removedCount, recipes.size());
 
                 // Re-select recipe
                 try {

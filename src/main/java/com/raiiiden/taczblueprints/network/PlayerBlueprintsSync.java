@@ -15,9 +15,6 @@ import java.util.Set;
 @Mod.EventBusSubscriber(modid = TaCZBlueprints.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PlayerBlueprintsSync {
 
-    /**
-     * Persist blueprints on death - CRITICAL for keeping unlocks
-     */
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
         // Only handle death (not dimension changes)
@@ -28,7 +25,7 @@ public class PlayerBlueprintsSync {
         Player original = event.getOriginal();
         Player newPlayer = event.getEntity();
 
-        TaCZBlueprints.LOGGER.debug("[Blueprint] Player died, cloning capability data...");
+        // TaCZBlueprints.LOGGER.debug("[Blueprint] Player died, cloning capability data...");
 
         // Revive old capabilities temporarily to access them
         original.reviveCaps();
@@ -41,7 +38,7 @@ public class PlayerBlueprintsSync {
                     Set<String> unlocked = oldCap.getUnlockedGuns();
                     newCap.setUnlockedGuns(unlocked);
 
-                    TaCZBlueprints.LOGGER.info("[Blueprint] Cloned {} unlocked guns to new player instance", unlocked.size());
+                    // TaCZBlueprints.LOGGER.info("[Blueprint] Cloned {} unlocked guns to new player instance", unlocked.size());
 
                     // Sync to client with slight delay to ensure capability is attached on client
                     if (newPlayer instanceof ServerPlayer serverPlayer) {
@@ -51,7 +48,7 @@ public class PlayerBlueprintsSync {
                                     PacketDistributor.PLAYER.with(() -> serverPlayer),
                                     new SyncUnlockedGunsPacket(unlocked)
                             );
-                            TaCZBlueprints.LOGGER.debug("[Blueprint] Synced unlocked guns to client after death (delayed)");
+                            // TaCZBlueprints.LOGGER.debug("[Blueprint] Synced unlocked guns to client after death (delayed)");
                         });
                     }
                 });
@@ -85,8 +82,8 @@ public class PlayerBlueprintsSync {
                     new SyncUnlockedGunsPacket(unlockedGuns)
             );
 
-            TaCZBlueprints.LOGGER.info("[Blueprint] Synced {} unlocked guns to {} on login",
-                    unlockedGuns.size(), serverPlayer.getName().getString());
+//            TaCZBlueprints.LOGGER.info("[Blueprint] Synced {} unlocked guns to {} on login",
+//                    unlockedGuns.size(), serverPlayer.getName().getString());
         });
     }
 
@@ -107,7 +104,7 @@ public class PlayerBlueprintsSync {
                     PacketDistributor.PLAYER.with(() -> serverPlayer),
                     new SyncUnlockedGunsPacket(unlockedGuns)
             );
-            TaCZBlueprints.LOGGER.debug("[Blueprint] Re-synced unlocked guns after dimension change");
+            // TaCZBlueprints.LOGGER.debug("[Blueprint] Re-synced unlocked guns after dimension change");
         });
     }
 }

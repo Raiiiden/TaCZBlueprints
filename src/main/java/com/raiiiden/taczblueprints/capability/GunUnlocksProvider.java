@@ -41,16 +41,10 @@ public class GunUnlocksProvider implements ICapabilitySerializable<CompoundTag> 
         createOrGetInstance().deserializeNBT(nbt);
     }
 
-    /**
-     * Convenience method to get capability from player
-     */
     public static LazyOptional<IGunUnlocks> get(Player player) {
         return player.getCapability(UNLOCKS);
     }
 
-    /**
-     * Invalidate the optional when capability is removed
-     */
     public void invalidate() {
         optional.invalidate();
     }

@@ -40,12 +40,12 @@ public class GunBlueprintItem extends Item {
         if (!world.isClientSide) {
             String storedGunId = getGunId(stack);
             if (storedGunId == null || storedGunId.isEmpty()) {
-                TaCZBlueprints.LOGGER.warn("[Blueprint] Invalid blueprint used by {}", player.getName().getString());
+                // TaCZBlueprints.LOGGER.warn("[Blueprint] Invalid blueprint used by {}", player.getName().getString());
                 player.displayClientMessage(Component.literal("§cInvalid blueprint!"), true);
                 return InteractionResultHolder.fail(stack);
             }
 
-            TaCZBlueprints.LOGGER.debug("[Blueprint] Using blueprint for storedGunId='{}'", storedGunId);
+            // TaCZBlueprints.LOGGER.debug("[Blueprint] Using blueprint for storedGunId='{}'", storedGunId);
 
             final String gunIdForUnlock = storedGunId; // full ID including gun/
 
@@ -56,7 +56,7 @@ public class GunBlueprintItem extends Item {
             cap.ifPresent(unlocks -> {
                 if (!unlocks.isUnlocked(gunIdForUnlock)) {
                     unlocks.unlockGun(gunIdForUnlock);
-                    TaCZBlueprints.LOGGER.debug("[Blueprint] Gun unlocked: {}", gunIdForUnlock);
+                    // TaCZBlueprints.LOGGER.debug("[Blueprint] Gun unlocked: {}", gunIdForUnlock);
                     player.displayClientMessage(
                             Component.literal("§aUnlocked gun: ").append(gunName),
                             true
@@ -66,10 +66,10 @@ public class GunBlueprintItem extends Item {
 
                     if (player instanceof ServerPlayer serverPlayer) {
                         ModNetworking.sendToPlayer(serverPlayer, new SyncUnlockedGunsPacket(unlocks.getUnlockedGuns()));
-                        TaCZBlueprints.LOGGER.info("[Blueprint] Synced unlocked guns to {}", player.getName().getString());
+                        // TaCZBlueprints.LOGGER.info("[Blueprint] Synced unlocked guns to {}", player.getName().getString());
                     }
                 } else {
-                    TaCZBlueprints.LOGGER.debug("[Blueprint] Gun already unlocked: {}", gunIdForUnlock);
+                    // TaCZBlueprints.LOGGER.debug("[Blueprint] Gun already unlocked: {}", gunIdForUnlock);
                     player.displayClientMessage(
                             Component.literal("§eGun already unlocked: ").append(gunName),
                             true
@@ -159,7 +159,7 @@ public class GunBlueprintItem extends Item {
         CompoundTag tag = stack.getOrCreateTag();
         // Store the full gun ID with "gun/" prefix
         tag.putString("GunId", gunId.toString());
-        TaCZBlueprints.LOGGER.debug("[Blueprint] Creating blueprint for gunId='{}'", gunId);
+        // TaCZBlueprints.LOGGER.debug("[Blueprint] Creating blueprint for gunId='{}'", gunId);
         return stack;
     }
 }
