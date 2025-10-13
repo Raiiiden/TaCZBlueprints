@@ -122,6 +122,7 @@ mixin {
 }
 
 repositories {
+    maven { url = 'https://maven.minecraftforge.net' }
   flatDir { dir 'libs' }
   maven {
     // location of the maven that hosts JEI files
@@ -141,7 +142,7 @@ dependencies {
     annotationProcessor "org.spongepowered:mixin:0.8.5:processor"
     implementation fg.deobf("curse.maven:timeless-and-classics-zero-1028108:6654541")
     // implementation fg.deobf("curse.maven:lootr-361276:6961345")
-    // implementation fg.deobf("curse.maven:configured-457570:5180900")
+    implementation fg.deobf("curse.maven:configured-457570:5180900")
     // implementation fg.deobf("curse.maven:maxstuff-1199923:6624536")
     // implementation fg.deobf("curse.maven:tacz-endless-ammo-1166149:6623002")
     // implementation fg.deobf("curse.maven:yungs-better-strongholds-465575:4769083")

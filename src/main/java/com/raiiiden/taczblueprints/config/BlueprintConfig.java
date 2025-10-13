@@ -80,15 +80,15 @@ public class BlueprintConfig {
             builder.push("unlocks");
 
             enabledGuns = builder
-                    .comment("List of gun IDs enabled by default. Example: [\"tacz:ak47\", \"tacz:m4a1\"]")
+                    .comment("List of gun IDs enabled by default. Example: [\"tacz:gun/ak47\", \"tacz:gun/m4a1\"]")
                     .defineListAllowEmpty("enabledGuns", new ArrayList<>(), o -> o instanceof String);
 
             enabledAttachments = builder
-                    .comment("List of attachment IDs enabled by default. Example: [\"tacz:scope_4x\"]")
+                    .comment("List of attachment IDs enabled by default. Example: [\"tacz:attachment/scope_4x\"]")
                     .defineListAllowEmpty("enabledAttachments", new ArrayList<>(), o -> o instanceof String);
 
             enabledAmmo = builder
-                    .comment("List of ammo IDs enabled by default. Example: [\"tacz:556mm\"]")
+                    .comment("List of ammo IDs enabled by default. Example: [\"tacz:ammo/556mm\"]")
                     .defineListAllowEmpty("enabledAmmo", new ArrayList<>(), o -> o instanceof String);
 
             builder.pop();

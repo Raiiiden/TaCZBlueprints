@@ -40,12 +40,9 @@ public class GunBlueprintItem extends Item {
         if (!world.isClientSide) {
             String storedGunId = getGunId(stack);
             if (storedGunId == null || storedGunId.isEmpty()) {
-                // TaCZBlueprints.LOGGER.warn("[Blueprint] Invalid blueprint used by {}", player.getName().getString());
                 player.displayClientMessage(Component.literal("§cInvalid blueprint!"), true);
                 return InteractionResultHolder.fail(stack);
             }
-
-            // TaCZBlueprints.LOGGER.debug("[Blueprint] Using blueprint for storedGunId='{}'", storedGunId);
 
             final String gunIdForUnlock = storedGunId; // full ID including gun/
 
@@ -56,7 +53,6 @@ public class GunBlueprintItem extends Item {
             cap.ifPresent(unlocks -> {
                 if (!unlocks.isUnlocked(gunIdForUnlock)) {
                     unlocks.unlockGun(gunIdForUnlock);
-                    // TaCZBlueprints.LOGGER.debug("[Blueprint] Gun unlocked: {}", gunIdForUnlock);
                     player.displayClientMessage(
                             Component.literal("§aUnlocked gun: ").append(gunName),
                             true
@@ -66,10 +62,8 @@ public class GunBlueprintItem extends Item {
 
                     if (player instanceof ServerPlayer serverPlayer) {
                         ModNetworking.sendToPlayer(serverPlayer, new SyncUnlockedGunsPacket(unlocks.getUnlockedGuns()));
-                        // TaCZBlueprints.LOGGER.info("[Blueprint] Synced unlocked guns to {}", player.getName().getString());
                     }
                 } else {
-                    // TaCZBlueprints.LOGGER.debug("[Blueprint] Gun already unlocked: {}", gunIdForUnlock);
                     player.displayClientMessage(
                             Component.literal("§eGun already unlocked: ").append(gunName),
                             true
@@ -99,33 +93,63 @@ public class GunBlueprintItem extends Item {
             return;
         }
 
-        // Remove "gun/" prefix for lookup
-        ResourceLocation lookupId = getGunIdForLookup(storedGunId);
-        CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(lookupId);
-
-        if (index != null && index.getPojo() != null && index.getPojo().getName() != null && !index.getPojo().getName().isEmpty()) {
-            String translationKey = index.getPojo().getName();
-            // Use translatable component to resolve the translation key
-            tooltip.add(Component.translatable(translationKey).withStyle(style -> style.withColor(0x808080)));
-        } else {
-            TaCZBlueprints.LOGGER.debug("[Blueprint] No display name found for gunId={} (lookup: {})", storedGunId, lookupId);
+        // Try to get gun display name using TaCZ's resource provider (works on both client and server)
+        Component gunDisplayName = tryGetGunDisplayName(storedGunId);
+        if (gunDisplayName != null) {
+            tooltip.add(gunDisplayName.copy().withStyle(style -> style.withColor(0x808080)));
         }
     }
 
     /**
-     * Gets the display name for a gun (translatable component)
+     * Attempts to get the display name for a gun using TaCZ's resource provider
+     * This works on both client (via network cache) and server (via assets manager)
+     */
+    private static Component tryGetGunDisplayName(String storedGunId) {
+        try {
+            // Use TaCZ's get() method which returns the correct provider for client/server
+            var resourceProvider = CommonAssetsManager.get();
+            if (resourceProvider == null) {
+                return null;
+            }
+
+            ResourceLocation lookupId = getGunIdForLookup(storedGunId);
+            CommonGunIndex index = resourceProvider.getGunIndex(lookupId);
+
+            if (index != null && index.getPojo() != null && index.getPojo().getName() != null && !index.getPojo().getName().isEmpty()) {
+                String translationKey = index.getPojo().getName();
+                return Component.translatable(translationKey);
+            }
+        } catch (Exception e) {
+            // Silently fail - better than showing error text
+            TaCZBlueprints.LOGGER.debug("[Blueprint] Could not get gun display name for: {}", storedGunId);
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets the display name for a gun (for server-side usage when unlocking)
      */
     private static Component getGunDisplayName(String storedGunId) {
-        ResourceLocation lookupId = getGunIdForLookup(storedGunId);
-        CommonGunIndex index = CommonAssetsManager.getInstance().getGunIndex(lookupId);
+        try {
+            var resourceProvider = CommonAssetsManager.get();
+            if (resourceProvider == null) {
+                return Component.literal(storedGunId);
+            }
 
-        if (index != null && index.getPojo() != null && index.getPojo().getName() != null && !index.getPojo().getName().isEmpty()) {
-            String translationKey = index.getPojo().getName();
-            return Component.translatable(translationKey);
-        } else {
-            // Fallback to gun ID if no translation found
-            return Component.literal(storedGunId);
+            ResourceLocation lookupId = getGunIdForLookup(storedGunId);
+            CommonGunIndex index = resourceProvider.getGunIndex(lookupId);
+
+            if (index != null && index.getPojo() != null && index.getPojo().getName() != null && !index.getPojo().getName().isEmpty()) {
+                String translationKey = index.getPojo().getName();
+                return Component.translatable(translationKey);
+            }
+        } catch (Exception e) {
+            TaCZBlueprints.LOGGER.debug("[Blueprint] Could not get gun display name for: {}", storedGunId);
         }
+
+        // Fallback to gun ID
+        return Component.literal(storedGunId);
     }
 
     /**
@@ -159,7 +183,6 @@ public class GunBlueprintItem extends Item {
         CompoundTag tag = stack.getOrCreateTag();
         // Store the full gun ID with "gun/" prefix
         tag.putString("GunId", gunId.toString());
-        // TaCZBlueprints.LOGGER.debug("[Blueprint] Creating blueprint for gunId='{}'", gunId);
         return stack;
     }
 }

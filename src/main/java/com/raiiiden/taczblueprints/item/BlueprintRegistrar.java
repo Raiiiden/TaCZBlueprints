@@ -11,8 +11,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.OnDatapackSyncEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
@@ -31,6 +31,8 @@ public class BlueprintRegistrar {
             TaCZBlueprints.MODID
     );
 
+    // Map to store gun ID -> gun type for when assets aren't available
+    private static final Map<ResourceLocation, String> GUN_TYPE_CACHE = new HashMap<>();
     private static final List<ResourceLocation> ALL_GUN_IDS = new ArrayList<>();
 
     public static final RegistryObject<Item> BLUEPRINT_PISTOL = ITEMS.register("blueprint_pistol",
@@ -72,33 +74,23 @@ public class BlueprintRegistrar {
     public static final RegistryObject<CreativeModeTab> BLUEPRINT_TAB = CREATIVE_MODE_TABS.register("blueprints",
             () -> CreativeModeTab.builder()
                     .title(Component.literal("TaCZ Blueprints"))
-                    .icon(() -> {
-                        if (!ALL_GUN_IDS.isEmpty()) {
-                            return createBlueprintForGun(ALL_GUN_IDS.get(0));
-                        }
-                        return new ItemStack(BLUEPRINT_DEFAULT.get());
-                    })
+                    .icon(() -> new ItemStack(BLUEPRINT_RIFLE.get()))
                     .displayItems((params, output) -> {
+                        // ALWAYS try to populate when the tab is displayed
+                        populateGunsFromResourceProvider();
+
+                        // If still empty after trying, don't show anything
+                        if (ALL_GUN_IDS.isEmpty()) {
+                            TaCZBlueprints.LOGGER.warn("[{}] No guns available for blueprint tab", TaCZBlueprints.MODID);
+                            return;
+                        }
+
                         List<String> typeOrder = Arrays.asList("Sniper", "Mg", "Rifle", "Shotgun", "Smg", "Pistol", "Rpg");
                         Map<String, List<ResourceLocation>> gunsByType = new HashMap<>();
 
+                        // Group guns by their cached type
                         for (ResourceLocation gunId : ALL_GUN_IDS) {
-                            String path = gunId.getPath();
-                            if (path.startsWith("gun/")) {
-                                path = path.substring(4);
-                            }
-                            ResourceLocation lookupId = new ResourceLocation(gunId.getNamespace(), path);
-
-                            CommonGunIndex index = CommonAssetsManager.getInstance() != null
-                                    ? CommonAssetsManager.getInstance().getGunIndex(lookupId)
-                                    : null;
-
-                            String type = "Gun";
-                            if (index != null && index.getType() != null && !index.getType().isEmpty()) {
-                                type = capitalize(index.getType());
-                            } else {
-                                TaCZBlueprints.LOGGER.warn("[Blueprint] Missing gun index or type for: {}", gunId);
-                            }
+                            String type = GUN_TYPE_CACHE.getOrDefault(gunId, "Gun");
                             gunsByType.computeIfAbsent(type, k -> new ArrayList<>()).add(gunId);
                         }
 
@@ -132,60 +124,98 @@ public class BlueprintRegistrar {
         ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());
         CREATIVE_MODE_TABS.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.register(BlueprintRegistrar.class);
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(BlueprintRegistrar::onCommonSetup);
         TaCZBlueprints.LOGGER.info("[{}] Blueprint registry initialized", TaCZBlueprints.MODID);
     }
 
-    private static void onCommonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(BlueprintRegistrar::populateGunIds);
+    @SubscribeEvent
+    public static void onServerStarted(ServerStartedEvent event) {
+        populateGunsFromResourceProvider();
     }
 
     @SubscribeEvent
     public static void onDatapackSync(OnDatapackSyncEvent event) {
-        populateGunIds();
+        populateGunsFromResourceProvider();
     }
 
-    private static void populateGunIds() {
-        CommonAssetsManager assetsManager = CommonAssetsManager.getInstance();
+    /**
+     * Populates gun IDs from TaCZ's resource provider (works on both client and server now)
+     */
+    private static void populateGunsFromResourceProvider() {
+        var resourceProvider = CommonAssetsManager.get();
 
         ALL_GUN_IDS.clear();
+        GUN_TYPE_CACHE.clear();
 
-        if (assetsManager == null) {
-            TaCZBlueprints.LOGGER.warn("[{}] CommonAssetsManager instance is null! Using test gun.", TaCZBlueprints.MODID);
-            ALL_GUN_IDS.add(new ResourceLocation(TaCZBlueprints.MODID, "test_gun"));
-        } else {
-            for (Map.Entry<ResourceLocation, CommonGunIndex> entry : assetsManager.getAllGuns()) {
+        if (resourceProvider == null) {
+            TaCZBlueprints.LOGGER.debug("[{}] Resource provider not available yet", TaCZBlueprints.MODID);
+            return;
+        }
+
+        try {
+            for (var entry : resourceProvider.getAllGuns()) {
                 ResourceLocation id = entry.getKey();
+                CommonGunIndex index = entry.getValue();
+
+                // Normalize ID to include "gun/" prefix
                 if (!id.getPath().startsWith("gun/")) {
                     id = new ResourceLocation(id.getNamespace(), "gun/" + id.getPath());
                 }
-                ALL_GUN_IDS.add(id);
-            }
-        }
 
-        TaCZBlueprints.LOGGER.info("[{}] Total guns loaded: {}", TaCZBlueprints.MODID, ALL_GUN_IDS.size());
+                // Cache the gun type
+                String type = "Gun";
+                if (index != null && index.getType() != null && !index.getType().isEmpty()) {
+                    type = capitalize(index.getType());
+                }
+
+                ALL_GUN_IDS.add(id);
+                GUN_TYPE_CACHE.put(id, type);
+            }
+
+            TaCZBlueprints.LOGGER.info("[{}] Loaded {} guns for blueprints", TaCZBlueprints.MODID, ALL_GUN_IDS.size());
+        } catch (Exception e) {
+            TaCZBlueprints.LOGGER.error("[{}] Failed to populate gun IDs", TaCZBlueprints.MODID, e);
+        }
     }
 
     public static List<ResourceLocation> getAllGunIds() {
+        // If empty, try to populate
+        if (ALL_GUN_IDS.isEmpty()) {
+            populateGunsFromResourceProvider();
+        }
         return ALL_GUN_IDS;
     }
 
+    public static String getGunType(ResourceLocation gunId) {
+        // Check cache first
+        if (GUN_TYPE_CACHE.containsKey(gunId)) {
+            return GUN_TYPE_CACHE.get(gunId);
+        }
+
+        // Try to look up from resource provider
+        var resourceProvider = CommonAssetsManager.get();
+        if (resourceProvider != null) {
+            String path = gunId.getPath();
+            if (path.startsWith("gun/")) {
+                path = path.substring(4);
+            }
+            ResourceLocation lookupId = new ResourceLocation(gunId.getNamespace(), path);
+            CommonGunIndex index = resourceProvider.getGunIndex(lookupId);
+
+            if (index != null && index.getType() != null && !index.getType().isEmpty()) {
+                String type = capitalize(index.getType());
+                GUN_TYPE_CACHE.put(gunId, type); // Cache it
+                return type;
+            }
+        }
+
+        return "Gun"; // Default fallback
+    }
+
     public static ItemStack createBlueprintForGun(ResourceLocation gunId) {
-        String path = gunId.getPath();
-        if (path.startsWith("gun/")) {
-            path = path.substring(4);
-        }
-        ResourceLocation lookupId = new ResourceLocation(gunId.getNamespace(), path);
+        // Get the gun type (from cache or lookup)
+        String type = getGunType(gunId);
 
-        CommonGunIndex index = CommonAssetsManager.getInstance() != null
-                ? CommonAssetsManager.getInstance().getGunIndex(lookupId)
-                : null;
-
-        String type = "Gun";
-        if (index != null && index.getType() != null && !index.getType().isEmpty()) {
-            type = capitalize(index.getType());
-        }
-
+        // Get the appropriate blueprint item for this type
         RegistryObject<Item> blueprintItem = TYPE_TO_BLUEPRINT.getOrDefault(type, BLUEPRINT_DEFAULT);
 
         return GunBlueprintItem.createBlueprint(blueprintItem.get(), gunId);
