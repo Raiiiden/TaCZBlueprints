@@ -74,7 +74,7 @@ public class BlueprintRegistrar {
     public static final RegistryObject<CreativeModeTab> BLUEPRINT_TAB = CREATIVE_MODE_TABS.register("blueprints",
             () -> CreativeModeTab.builder()
                     .title(Component.literal("TaCZ Blueprints"))
-                    .icon(() -> new ItemStack(BLUEPRINT_RIFLE.get()))
+                    .icon(() -> new ItemStack(BLUEPRINT_DEFAULT.get()))
                     .displayItems((params, output) -> {
                         // ALWAYS try to populate when the tab is displayed
                         populateGunsFromResourceProvider();

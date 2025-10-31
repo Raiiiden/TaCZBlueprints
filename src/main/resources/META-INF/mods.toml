@@ -10,7 +10,7 @@ issueTrackerURL=""
 
 [[mods]] #mandatory
 modId="taczblueprints" #mandatory
-version="0.1.1" #mandatory
+version="0.1.2" #mandatory
 displayName="TaCZ: Blueprints" #mandatory
 updateJSONURL=""
 displayURL="https://www.curseforge.com/minecraft/mc-mods/_curseslug_"
